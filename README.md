@@ -4,7 +4,7 @@ An network handling implementation for java and processing.org
 
 ---
 
-## examples
+## Examples
 
 #### [recorder](examples/udpRecorder)
 
@@ -13,6 +13,14 @@ An network handling implementation for java and processing.org
 #### [receiver](examples/udpReceiver)
 
 ![screenShot](resources/screenshot/ss_receiver.png)
+
+---
+
+## Usage
+
+```
+$ ./gradlew
+```
 
 ---
 
