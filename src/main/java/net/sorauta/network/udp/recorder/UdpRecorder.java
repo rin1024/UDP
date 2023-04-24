@@ -170,7 +170,7 @@ public class UdpRecorder {
     try {
       JsonFactory jsonFactory = new JsonFactory();
       JsonGenerator generator =
-          jsonFactory.createJsonGenerator(
+          jsonFactory.createGenerator(
               new FileOutputStream(new File(recorderFilePath)), JsonEncoding.UTF8);
 
       generator.writeStartArray();
