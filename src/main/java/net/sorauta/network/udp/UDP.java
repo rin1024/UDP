@@ -14,8 +14,7 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.*;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import org.apache.log4j.Logger;
 import processing.core.*;
 
 /**
@@ -53,12 +52,16 @@ import processing.core.*;
  * @author Douglas Edric Stanley - http://www.abstractmachine.net/
  */
 public class UDP implements Runnable {
+  private final String VERSION = Version.getVersion();
+  private final String BUILD_DATE = Version.getBuildDate();
+
+  /** instance of Logger */
+  protected final Logger L = Logger.getLogger(getClass());
 
   // the current unicast/multicast datagram socket
   DatagramSocket ucSocket = null;
   MulticastSocket mcSocket = null;
 
-  boolean log = false; // enable/disable output log
   boolean listen = false; // true, if the socket waits for packets
   int timeout = 0; // reception timeout > 0=infinite timeout
   int size = 65507; // the socket buffer size in bytes
@@ -76,11 +79,6 @@ public class UDP implements Runnable {
   // automatically when the socket receive incoming datas or a timeout event
   String receiveHandler = "receive";
   String timeoutHandler = "timeout";
-
-  // the log "header" to be set for debugging. Because log is disable by
-  // default, this value is automatically replaced by the principal socket
-  // settings when a new instance of UDP is created.
-  String header = "";
 
   ///////////////////////////////// fields ///////////////////////////////
 
@@ -126,8 +124,9 @@ public class UDP implements Runnable {
    * @param ip host address or group address
    */
   public UDP(Object owner, int port, String ip) {
-
     this.owner = owner;
+
+    String welcomeMessage = "UDP library ver." + VERSION + " builtAt: " + BUILD_DATE;
 
     // register this object to the PApplet,
     // if it's used with Processing
@@ -140,28 +139,29 @@ public class UDP implements Runnable {
     // open a new socket to the specified port/address
     // and join the group if the multicast socket is required
     try {
-
       InetAddress addr = InetAddress.getByName(ip);
       InetAddress host = (ip == null) ? (InetAddress) null : addr;
 
       if (!addr.isMulticastAddress()) {
         ucSocket = new DatagramSocket(port, host); // as broadcast
-        log("bound socket to host:" + address() + ", port: " + port());
+        welcomeMessage += (", bound socket to host:" + address() + ", port:" + port());
       } else {
         mcSocket = new MulticastSocket(port); // as multicast
         mcSocket.joinGroup(addr);
         this.group = addr;
-        log(
-            "bound multicast socket to host:"
+        welcomeMessage +=
+            (", bound multicast socket to host:"
                 + address()
-                + ", port: "
+                + ", port:"
                 + port()
                 + ", group:"
                 + group);
       }
+
+      L.debug(welcomeMessage);
     } catch (IOException e) {
       // caught SocketException & UnknownHostException
-      error(
+      L.error(
           "opening socket failed!"
               + "\n\t> address:"
               + ip
@@ -173,9 +173,10 @@ public class UDP implements Runnable {
               + "\n\t> "
               + e.getMessage());
     } catch (IllegalArgumentException e) {
-      error("opening socket failed!" + "\n\t> bad arguments: " + e.getMessage());
+      L.error("opening socket failed!" + "\n\t> bad arguments: " + e.getMessage());
     } catch (SecurityException e) {
-      error((isMulticast() ? "could not joined the group" : "warning") + "\n\t> " + e.getMessage());
+      L.error(
+          (isMulticast() ? "could not joined the group" : "warning") + "\n\t> " + e.getMessage());
     }
   }
 
@@ -206,7 +207,7 @@ public class UDP implements Runnable {
       if (isMulticast()) {
         if (group != null) {
           mcSocket.leaveGroup(group);
-          log("leave group < address:" + group + " >");
+          L.debug("leave group < address:" + group + " >");
         }
         mcSocket.close();
         mcSocket = null;
@@ -215,11 +216,11 @@ public class UDP implements Runnable {
         ucSocket = null;
       }
     } catch (IOException e) {
-      error("Error while closing the socket!\n\t> " + e.getMessage());
+      L.error("Error while closing the socket!\n\t> " + e.getMessage());
     } catch (SecurityException e) {
       ;
     } finally {
-      log("close socket < port:" + port + ", address:" + ip + " >\n");
+      L.debug("close socket < port:" + port + ", address:" + ip + " >\n");
     }
   }
 
@@ -358,7 +359,7 @@ public class UDP implements Runnable {
       else ucSocket.send(pa);
 
       success = true;
-      log(
+      L.debug(
           "send packet -> address:"
               + pa.getAddress()
               + ", port:"
@@ -366,7 +367,7 @@ public class UDP implements Runnable {
               + ", length: "
               + pa.getLength());
     } catch (IOException e) {
-      error(
+      L.error(
           "could not send message!"
               + "\t\n> port:"
               + port
@@ -417,7 +418,7 @@ public class UDP implements Runnable {
       this.size = size > 0 ? size : BUFFER_SIZE;
       done = true;
     } catch (SocketException e) {
-      error("could not set the buffer!" + "\n> " + e.getMessage());
+      L.error("could not set the buffer!" + "\n> " + e.getMessage());
     } finally {
       return done;
     }
@@ -518,7 +519,7 @@ public class UDP implements Runnable {
         ucSocket.receive(pa); // <-- block
       }
 
-      log(
+      L.debug(
           "receive packet <- from "
               + pa.getAddress()
               + ", port:"
@@ -554,7 +555,7 @@ public class UDP implements Runnable {
       else {
         // do not print "Socket closed" error
         // if the method close() has been called
-        if (ucSocket != null && mcSocket != null) error("listen failed!\n\t> " + e.getMessage());
+        if (ucSocket != null && mcSocket != null) L.error("listen failed!\n\t> " + e.getMessage());
       }
     }
   }
@@ -611,7 +612,7 @@ public class UDP implements Runnable {
       method = owner.getClass().getMethod(receiveHandler, types);
       method.invoke(owner, values);
     } catch (IllegalAccessException e) {
-      error(e.getMessage());
+      L.error(e.getMessage());
     } catch (InvocationTargetException e) {
       e.printStackTrace();
     }
@@ -638,7 +639,7 @@ public class UDP implements Runnable {
     } catch (NoSuchMethodException e) {
       ;
     } catch (IllegalAccessException e) {
-      error(e.getMessage());
+      L.error(e.getMessage());
     } catch (InvocationTargetException e) {
       e.printStackTrace();
     }
@@ -666,7 +667,7 @@ public class UDP implements Runnable {
     } catch (NoSuchMethodException e) {
       ;
     } catch (IllegalAccessException e) {
-      error(e.getMessage());
+      L.error(e.getMessage());
     } catch (InvocationTargetException e) {
       e.printStackTrace();
     }
@@ -700,7 +701,7 @@ public class UDP implements Runnable {
     try {
       result = (ucSocket == null) ? false : ucSocket.getBroadcast();
     } catch (SocketException e) {
-      error(e.getMessage());
+      L.error(e.getMessage());
     } finally {
       return result;
     }
@@ -719,7 +720,7 @@ public class UDP implements Runnable {
         done = isBroadcast();
       }
     } catch (SocketException e) {
-      error(e.getMessage());
+      L.error(e.getMessage());
     } finally {
       return done;
     }
@@ -736,7 +737,7 @@ public class UDP implements Runnable {
     try {
       if (isMulticast()) mcSocket.setLoopbackMode(!on);
     } catch (SocketException e) {
-      error("could not set the loopback mode!\n\t>" + e.getMessage());
+      L.error("could not set the loopback mode!\n\t>" + e.getMessage());
     }
   }
 
@@ -749,7 +750,7 @@ public class UDP implements Runnable {
     try {
       if (isMulticast() && !isClosed()) return !mcSocket.getLoopbackMode();
     } catch (SocketException e) {
-      error("could not get the loopback mode!\n\t> " + e.getMessage());
+      L.error("could not get the loopback mode!\n\t> " + e.getMessage());
     }
     return false;
   }
@@ -785,9 +786,9 @@ public class UDP implements Runnable {
       if (isMulticast() && !isClosed()) mcSocket.setTimeToLive(ttl);
       return true;
     } catch (IOException e) {
-      error("setting the default \"Time to Live\" value failed!" + "\n\t> " + e.getMessage());
+      L.error("setting the default \"Time to Live\" value failed!" + "\n\t> " + e.getMessage());
     } catch (IllegalArgumentException e) {
-      error("\"Time to Live\" value must be in the range of 0-255");
+      L.error("\"Time to Live\" value must be in the range of 0-255");
     }
     return false;
   }
@@ -803,46 +804,8 @@ public class UDP implements Runnable {
     try {
       if (isMulticast() && !isClosed()) return mcSocket.getTimeToLive();
     } catch (IOException e) {
-      error("could not retrieve the current time-to-live value!" + "\n\t> " + e.getMessage());
+      L.error("could not retrieve the current time-to-live value!" + "\n\t> " + e.getMessage());
     }
     return -1;
-  }
-
-  /** Enable or disable output process log. */
-  public void log(boolean on) {
-    log = on;
-  }
-
-  /**
-   * Output message to the standard output stream.
-   *
-   * @param out the output message
-   */
-  private void log(String out) {
-
-    Date date = new Date();
-
-    // define the "header" to retrieve at least the principal socket
-    // informations : the host/port where the socket is bound.
-    if (!log && header.equals(""))
-      header = "-- UDP session started at " + date + " --\n-- " + out + " --\n";
-
-    // print out
-    if (log) {
-
-      String pattern = "yy-MM-dd HH:mm:ss.S Z";
-      String sdf = new SimpleDateFormat(pattern).format(date);
-      System.out.println(header + "[" + sdf + "] " + out);
-      header = ""; // forget header
-    }
-  }
-
-  /**
-   * Output error messages to the standard error stream.
-   *
-   * @param err the error string
-   */
-  private void error(String err) {
-    System.err.println(err);
   }
 }
