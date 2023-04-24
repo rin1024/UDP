@@ -119,7 +119,7 @@ public class UdpRecorder {
           targetIp = packetInfo.getSenderIpAddress();
           targetPort = packetInfo.getSenderPort();
         }
-        
+
         // 送信する
         udp.send(packetInfo.getPacketData(), targetIp, targetPort);
 
