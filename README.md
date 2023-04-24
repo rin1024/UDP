@@ -6,13 +6,17 @@ An network handling implementation for java and processing.org
 
 ## Examples
 
-#### [recorder](examples/udpRecorder)
+#### [udpRecorder](examples/udpRecorder)
 
 ![screenShot](resources/screenshot/ss_recorder.png)
 
-#### [receiver](examples/udpReceiver)
+UDPの信号をキャプチャして録画・再生ができる。
+
+#### [udpReceiver](examples/udpReceiver)
 
 ![screenShot](resources/screenshot/ss_receiver.png)
+
+UDPの信号を受信したら、内容をdumpできる。
 
 ---
 
