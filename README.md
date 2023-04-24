@@ -2,7 +2,17 @@
 
 An network handling implementation for java and processing.org
 
-![screenShot](resources/screenshot/ss.png)
+---
+
+## examples
+
+#### [recorder](examples/udpRecorder)
+
+![screenShot](resources/screenshot/ss_recorder.png)
+
+#### [receiver](examples/udpReceiver)
+
+![screenShot](resources/screenshot/ss_receiver.png)
 
 ---
 
