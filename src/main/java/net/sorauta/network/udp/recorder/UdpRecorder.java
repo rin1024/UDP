@@ -1,5 +1,6 @@
 package net.sorauta.network.udp.recorder;
 
+import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
@@ -109,10 +110,11 @@ public class UdpRecorder {
       firstRecordMillis = app.millis();
     }
     long currentMillis = app.millis() - firstRecordMillis;
+    Date currentDate = new Date();
 
     if (!sameAsLastPackedInfo(_packetData)) {
       UdpPacketInfo packetInfo =
-          new UdpPacketInfo(currentMillis, _packetData, _senderIpAddress, _senderPort);
+          new UdpPacketInfo(currentDate, currentMillis, _packetData, _senderIpAddress, _senderPort);
       recordList.put(currentMillis, packetInfo);
 
       // dump
