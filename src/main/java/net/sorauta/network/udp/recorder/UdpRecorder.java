@@ -1,20 +1,32 @@
 package net.sorauta.network.udp.recorder;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 import net.sorauta.network.udp.UDP;
 import net.sorauta.network.udp.packet.UdpPacketInfo;
+import org.apache.log4j.Logger;
 import processing.core.PApplet;
 
 /** レコードするためのクラス */
 public class UdpRecorder {
+  /** instance of Logger */
+  protected final Logger L = Logger.getLogger(getClass());
+
   private PApplet app;
   private UDP udp;
 
   private int receiverPort = 6000;
-  private String saveFileName = "record.txt";
+  private String recorderFilePath = "";
 
   private UdpRecorderStatus recorderStatus = UdpRecorderStatus.STOPPED;
 
@@ -41,6 +53,7 @@ public class UdpRecorder {
     udp.listen(true);
   }
 
+  /** 更新処理 */
   public void update() {
     if (recorderStatus == UdpRecorderStatus.PLAYING) {
       updatePlaying();
@@ -146,43 +159,115 @@ public class UdpRecorder {
     }
   }
 
-  /**
-   * txt形式で保存する
-   *
-   * <p>TODO: 大量のデータを砂漠にはむいていないので修正必要
-   */
+  /** json形式で保存する */
   public void saveRecordList() {
-    int recordListIndex = 0;
-    String[] recordListAsStrings = new String[recordList.size()];
-    for (Map.Entry<Long, UdpPacketInfo> kv : recordList.entrySet()) {
-      Long timeCode = kv.getKey();
-      UdpPacketInfo packetInfo = kv.getValue();
-
-      recordListAsStrings[recordListIndex] = timeCode + ":" + packetInfo.toString();
-
-      recordListIndex++;
+    // ファイルパスが設定されていない場合、p5のdataフォルダ配下に自動生成
+    String recorderFilePath = getRecorderFilePath();
+    if (recorderFilePath.equals("")) {
+      setRecorderFilePath(app.dataPath("record_data.json"));
     }
 
-    app.saveStrings(saveFileName, recordListAsStrings);
+    try {
+      JsonFactory jsonFactory = new JsonFactory();
+      JsonGenerator generator =
+          jsonFactory.createJsonGenerator(
+              new FileOutputStream(new File(recorderFilePath)), JsonEncoding.UTF8);
+
+      generator.writeStartArray();
+
+      for (Map.Entry<Long, UdpPacketInfo> kv : recordList.entrySet()) {
+        Long timeCode = kv.getKey();
+        UdpPacketInfo packetInfo = kv.getValue();
+
+        generator.writeStartObject();
+        generator.writeStringField("receivedDate", packetInfo.getReceivedDateAsString());
+        generator.writeNumberField("receivedMillis", packetInfo.getReceivedMillis());
+        generator.writeStringField("senderIpAddress", packetInfo.getSenderIpAddress());
+        generator.writeNumberField("senderPort", packetInfo.getSenderPort());
+
+        generator.writeArrayFieldStart("packetData");
+        byte[] packets = packetInfo.getPacketData();
+        for (byte packet : packets) {
+          generator.writeObject(packet);
+        }
+        generator.writeEndArray();
+
+        generator.writeEndObject();
+      }
+
+      generator.writeEndArray();
+
+      // ファイルへの書き出し
+      generator.flush();
+    } catch (Exception e) {
+      L.error(e);
+    }
   }
 
   /**
-   * txt形式から呼び出す
+   * json形式から呼び出す
    *
    * <p>TODO: implement here
    */
   public void loadRecordList() {
-    // TODO: load from text file
+    try {
+      // 保存データを一旦クリア
+      recordList.clear();
+
+      // jsonファイルを読み込む
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode rootNode = mapper.readTree(new File(recorderFilePath));
+
+      for (JsonNode node : rootNode) {
+        SimpleDateFormat sdf = new SimpleDateFormat(UdpPacketInfo.SDF_PATTERN);
+        Date receivedDate = sdf.parse(node.get("receivedDate").asText());
+        long receivedMillis = node.get("receivedMillis").asLong();
+        String senderIpAddress = node.get("senderIpAddress").asText();
+        int senderPort = node.get("senderPort").asInt();
+
+        JsonNode bytesNode = node.get("packetData");
+        // byte[] packetData = bytesNode.binaryValue();
+        byte[] packetData = new byte[bytesNode.size()];
+        try {
+          for (int i = 0; i < packetData.length; i++) {
+            packetData[i] = (byte) bytesNode.get(i).asInt();
+          }
+        } catch (Exception e2) {
+          L.error("e2: " + e2);
+        }
+
+        UdpPacketInfo packetInfo =
+            new UdpPacketInfo(
+                receivedDate, receivedMillis, packetData, senderIpAddress, senderPort);
+
+        recordList.put(receivedMillis, packetInfo);
+      }
+
+    } catch (Exception e) {
+      L.error("e: " + e);
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // getter / setter
   ///////////////////////////////////////////////////////////////////////////////////////////////////
+  public int getNumRecords() {
+    return recordList.size();
+  }
+
   public UdpRecorderStatus getRecorderStatus() {
     return recorderStatus;
   }
 
   public long getCurrentPlayerKey() {
     return currentPlayerKey;
+  }
+
+  public String getRecorderFilePath() {
+    return recorderFilePath;
+  }
+
+  public void setRecorderFilePath(String _recorderFilePath) {
+    recorderFilePath = _recorderFilePath;
   }
 }
