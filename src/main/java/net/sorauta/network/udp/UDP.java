@@ -633,7 +633,7 @@ public class UDP implements Runnable {
 
     try {
       types = new Class[] {data.getClass(), ip.getClass(), Integer.TYPE};
-      values = new Object[] {data, ip, new Integer(port)};
+      values = new Object[] {data, ip, port};
       method = owner.getClass().getMethod(receiveHandler, types);
       method.invoke(owner, values);
     } catch (NoSuchMethodException e) {
@@ -662,8 +662,8 @@ public class UDP implements Runnable {
    */
   private void callTimeoutHandler() {
     try {
-      Method m = owner.getClass().getDeclaredMethod(timeoutHandler, null);
-      m.invoke(owner, null);
+      Method m = owner.getClass().getDeclaredMethod(timeoutHandler);
+      m.invoke(owner);
     } catch (NoSuchMethodException e) {
       ;
     } catch (IllegalAccessException e) {
