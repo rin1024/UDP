@@ -29,9 +29,9 @@ public class UdpRecorder {
   private String recorderFilePath = "";
 
   private UdpRecorderStatus recorderStatus = UdpRecorderStatus.STOPPED;
+  private boolean updatedFlag = false;
 
   private TreeMap<Long, UdpPacketInfo> recordList;
-  Iterator<Long> recordListIterator;
 
   // recorder
   private long firstRecordMillis = 0;
@@ -40,6 +40,8 @@ public class UdpRecorder {
   // player
   private long playerStartedMillis = 0;
   private long currentPlayerKey = 0;
+  private int currentPlayerIndex = 0; // for debug only
+  Iterator<Long> recordListIterator;
 
   /** create new instance */
   public UdpRecorder(PApplet _app) {
@@ -47,42 +49,50 @@ public class UdpRecorder {
     recordList = new TreeMap<Long, UdpPacketInfo>();
     recordListIterator = null;
     lastPacketInfo = null;
+  }
 
+  /** udpのlistenを開始する */
+  public void setup() {
     udp = new UDP(this, receiverPort);
-    // udp.log( true );     // <-- printout the connection activity
     udp.listen(true);
   }
 
   /** 更新処理 */
-  public void update() {
+  public boolean update() {
     if (recorderStatus == UdpRecorderStatus.PLAYING) {
       updatePlaying();
     }
+
+    if (updatedFlag) {
+      updatedFlag = false;
+      return true;
+    }
+    return false;
   }
 
   /** 録画開始 */
   public void startToRecord() {
-    // if (firstRecordMillis == 0) {
-    //   firstRecordMillis = app.millis();
-    // }
+    firstRecordMillis = 0;
     recorderStatus = UdpRecorderStatus.RECORDING;
+    lastPacketInfo = null;
+
+    clearRecordList();
   }
 
   /** 再生開始 */
   public void startToPlay() {
-    recorderStatus = UdpRecorderStatus.PLAYING;
     playerStartedMillis = app.millis();
-    currentPlayerKey = -1;
+    recorderStatus = UdpRecorderStatus.PLAYING;
 
-    recordListIterator = recordList.keySet().iterator();
-    if (recordListIterator.hasNext()) {
-      currentPlayerKey = (Long) recordListIterator.next();
-    }
+    clearPlayVars();
   }
 
   /** 停止 */
   public void stop() {
     recorderStatus = UdpRecorderStatus.STOPPED;
+
+    // 再生関連の変数をリセットしておく
+    clearPlayVars();
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,18 +106,31 @@ public class UdpRecorder {
     if (recordListIterator.hasNext()) {
       if ((app.millis() - playerStartedMillis) - currentPlayerKey >= 0) {
         currentPlayerKey = (Long) recordListIterator.next();
-        System.out.println("currentPlayerKey: " + currentPlayerKey);
 
         UdpPacketInfo packetInfo = recordList.get(currentPlayerKey);
         udp.send(
             packetInfo.getPacketData(),
             packetInfo.getSenderIpAddress(),
             packetInfo.getSenderPort());
+
+        updatedFlag = true;
+        currentPlayerIndex++;
+        lastPacketInfo = packetInfo;
       }
     } else {
-      System.out.println("finished to play.");
+      L.debug("finished to play.");
       recorderStatus = UdpRecorderStatus.STOPPED;
     }
+  }
+
+  /** 再生関連の変数をリセット */
+  public void clearPlayVars() {
+    currentPlayerKey = -1;
+    recordListIterator = recordList.keySet().iterator();
+    if (recordListIterator.hasNext()) {
+      currentPlayerKey = (Long) recordListIterator.next();
+    }
+    currentPlayerIndex = 0;
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,13 +148,16 @@ public class UdpRecorder {
     long currentMillis = app.millis() - firstRecordMillis;
     Date currentDate = new Date();
 
+    // リストに追加する
     if (!sameAsLastPackedInfo(_packetData)) {
       UdpPacketInfo packetInfo =
           new UdpPacketInfo(currentDate, currentMillis, _packetData, _senderIpAddress, _senderPort);
       recordList.put(currentMillis, packetInfo);
 
+      updatedFlag = true;
+
       // dump
-      PApplet.println(packetInfo.toString());
+      L.debug(packetInfo.toString());
     }
   }
 
@@ -151,11 +177,16 @@ public class UdpRecorder {
     return true;
   }
 
+  /** listをクリアする */
+  public void clearRecordList() {
+    recordList.clear();
+  }
+
   /** 保存されているレコード情報をdumpする */
   public void dumpRecordList() {
     for (Long receivedMillis : recordList.keySet()) {
       UdpPacketInfo packetInfo = recordList.get(receivedMillis);
-      System.out.println(packetInfo);
+      L.info(packetInfo);
     }
   }
 
@@ -204,15 +235,11 @@ public class UdpRecorder {
     }
   }
 
-  /**
-   * json形式から呼び出す
-   *
-   * <p>TODO: implement here
-   */
+  /** json形式から呼び出す */
   public void loadRecordList() {
     try {
       // 保存データを一旦クリア
-      recordList.clear();
+      clearRecordList();
 
       // jsonファイルを読み込む
       ObjectMapper mapper = new ObjectMapper();
@@ -243,6 +270,9 @@ public class UdpRecorder {
         recordList.put(receivedMillis, packetInfo);
       }
 
+      // 再生関連の変数をリセットしておく
+      clearPlayVars();
+
     } catch (Exception e) {
       L.error("e: " + e);
     }
@@ -251,6 +281,14 @@ public class UdpRecorder {
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   // getter / setter
   ///////////////////////////////////////////////////////////////////////////////////////////////////
+  public int getReceiverPort() {
+    return receiverPort;
+  }
+
+  public void setReceiverPort(int _receiverPort) {
+    receiverPort = _receiverPort;
+  }
+
   public int getNumRecords() {
     return recordList.size();
   }
@@ -263,11 +301,19 @@ public class UdpRecorder {
     return currentPlayerKey;
   }
 
+  public int getCurrentPlayerIndex() {
+    return currentPlayerIndex;
+  }
+
   public String getRecorderFilePath() {
     return recorderFilePath;
   }
 
   public void setRecorderFilePath(String _recorderFilePath) {
     recorderFilePath = _recorderFilePath;
+  }
+
+  public UdpPacketInfo getLastPacketInfo() {
+    return lastPacketInfo;
   }
 }
