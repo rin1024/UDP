@@ -5,6 +5,8 @@ import java.util.Date;
 
 /** 受信時刻、送信元情報、パケットを保持するためのクラス */
 public class UdpPacketInfo {
+  public static final String SDF_PATTERN = "yy-MM-dd HH:mm:ss.S Z";
+
   private Date receivedDate;
   private long receivedMillis;
   private byte[] packetData;
@@ -40,6 +42,15 @@ public class UdpPacketInfo {
    */
   public Date getReceivedDate() {
     return receivedDate;
+  }
+
+  /**
+   * getter
+   *
+   * @return 受信日時を文字列で
+   */
+  public String getReceivedDateAsString() {
+    return new SimpleDateFormat(SDF_PATTERN).format(receivedDate);
   }
 
   /**
@@ -83,10 +94,7 @@ public class UdpPacketInfo {
   public String toString() {
     String outString = "";
 
-    String pattern = "yy-MM-dd HH:mm:ss.S Z";
-    String sdf = new SimpleDateFormat(pattern).format(receivedDate);
-
-    outString += ("[Date: " + sdf + "]");
+    outString += ("[Date: " + getReceivedDateAsString() + "]");
     outString += ("[Millis: " + String.format("%09d", receivedMillis) + "]");
     outString += ("[From: " + senderIpAddress + "@" + senderPort + "]");
     outString += ("[Packet: ");
