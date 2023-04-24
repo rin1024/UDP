@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import net.sorauta.network.udp.UDP;
 import net.sorauta.network.udp.packet.UdpPacketInfo;
 import org.apache.log4j.Logger;
@@ -31,7 +31,7 @@ public class UdpRecorder {
   private UdpRecorderStatus recorderStatus = UdpRecorderStatus.STOPPED;
   private boolean updatedFlag = false;
 
-  private TreeMap<Long, UdpPacketInfo> recordList;
+  private ConcurrentSkipListMap<Long, UdpPacketInfo> recordList;
 
   // recorder
   private long firstRecordMillis = 0;
@@ -43,10 +43,13 @@ public class UdpRecorder {
   private int currentPlayerIndex = 0; // for debug only
   Iterator<Long> recordListIterator;
 
+  private String targetIpAddress = "";
+  private int targetPort = -1;
+
   /** create new instance */
   public UdpRecorder(PApplet _app) {
     app = _app;
-    recordList = new TreeMap<Long, UdpPacketInfo>();
+    recordList = new ConcurrentSkipListMap<Long, UdpPacketInfo>();
     recordListIterator = null;
     lastPacketInfo = null;
   }
@@ -108,10 +111,17 @@ public class UdpRecorder {
         currentPlayerKey = (Long) recordListIterator.next();
 
         UdpPacketInfo packetInfo = recordList.get(currentPlayerKey);
-        udp.send(
-            packetInfo.getPacketData(),
-            packetInfo.getSenderIpAddress(),
-            packetInfo.getSenderPort());
+        String targetIp = getTargetIpAddress();
+        int targetPort = getTargetPort();
+
+        // 特定の返信先が指定されていない場合、もともとのpacketの送信元に戻す
+        if (targetIp.equals("") && targetPort == -1) {
+          targetIp = packetInfo.getSenderIpAddress();
+          targetPort = packetInfo.getSenderPort();
+        }
+        
+        // 送信する
+        udp.send(packetInfo.getPacketData(), targetIp, targetPort);
 
         updatedFlag = true;
         currentPlayerIndex++;
@@ -253,7 +263,6 @@ public class UdpRecorder {
         int senderPort = node.get("senderPort").asInt();
 
         JsonNode bytesNode = node.get("packetData");
-        // byte[] packetData = bytesNode.binaryValue();
         byte[] packetData = new byte[bytesNode.size()];
         try {
           for (int i = 0; i < packetData.length; i++) {
@@ -315,5 +324,21 @@ public class UdpRecorder {
 
   public UdpPacketInfo getLastPacketInfo() {
     return lastPacketInfo;
+  }
+
+  public String getTargetIpAddress() {
+    return targetIpAddress;
+  }
+
+  public void setTargetIpAddress(String _targetIpAddress) {
+    targetIpAddress = _targetIpAddress;
+  }
+
+  public int getTargetPort() {
+    return targetPort;
+  }
+
+  public void setTargetPort(int _targetPort) {
+    targetPort = _targetPort;
   }
 }

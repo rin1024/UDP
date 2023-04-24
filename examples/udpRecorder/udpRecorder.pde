@@ -2,13 +2,15 @@ import com.fasterxml.jackson.core.JsonFactory;
 import controlP5.app.ControlP5;
 import controlP5.ControlEvent;
 import controlP5.controller.chart.*;
+import controlP5.controller.textfield.*;
 import jp.ncl.time.Time;
 import net.sorauta.network.udp.packet.UdpPacketInfo;
 import net.sorauta.network.udp.recorder.UdpRecorder;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
-String RECORDER_FILENAME = "record_data.json";
+final int RECEIVER_PORT = 6454;
+final String RECORDER_FILENAME = "record_data.json";
 
 UdpRecorder recorder;
 
@@ -26,21 +28,38 @@ void setup() {
   textSize(16);
 
   recorder = new UdpRecorder(this);
+  recorder.setReceiverPort(RECEIVER_PORT);
   recorder.setup();
   recorder.setRecorderFilePath(dataPath(RECORDER_FILENAME));
 
   cp5 = new ControlP5(this);
   myChart = cp5.addChart("dataflow")
-               .setPosition(20, 80)
+               .setPosition(20, 100)
                .setSize(width - 40, 100)
                .setRange(-20, 20)
                .setView(Chart.LINE)
                .setStrokeWeight(1.5)
                .setLabel("")
                ;
-
   myChart.addDataSet("incoming");
   myChart.setData("incoming", new float[100]);
+
+  int xPos = width - 120;
+  cp5.addButton("update")
+     .setValue(0)
+     .setPosition(xPos, 25)
+     .setSize(100, 30)
+     ;
+  xPos -= 170;
+  cp5.addTextfield("targetPort")
+     .setPosition(xPos, 25)
+     .setSize(150, 30)
+     ;
+  xPos -= 170;
+  cp5.addTextfield("targetIpAddress")
+     .setPosition(xPos,25)
+     .setSize(150, 30)
+     ;
 }
 
 void draw() {
@@ -52,8 +71,9 @@ void draw() {
   myChart.push("incoming", (updatedFlag ? 10 : 0));
 
   // info
-  text("Records: " + recorder.getCurrentPlayerIndex() + " / " + (recorder.getNumRecords() - 1), 20, 40);
-  text("Recorder Status: " + recorder.getRecorderStatus(), 20, 60);
+  text("ReceiverPort: " + recorder.getReceiverPort(), 20, 40);
+  text("Records: " + recorder.getCurrentPlayerIndex() + " / " + (recorder.getNumRecords() - 1), 20, 60);
+  text("Recorder Status: " + recorder.getRecorderStatus(), 20, 80);
   
   // detail
   UdpPacketInfo lastPacketInfo = recorder.getLastPacketInfo();
@@ -61,7 +81,7 @@ void draw() {
     String s = lastPacketInfo.toString();
     s = s.substring(1, s.length() - 1);
     String[] str = s.split("\\]\\[");
-    text("Packet Info: \r\n" + join(str, "\r\n"), 20, 200);
+    text("Packet Info: \r\n" + join(str, "\r\n"), 20, 220);
   }
 
   // shortcut
@@ -96,6 +116,16 @@ void keyPressed() {
   }
 }
 
-void mouseClicked() {
-  // recorder.dumpRecordList();
+void update(int _theValue) {
+  try {
+    String targetIpAddress = cp5.get(Textfield.class,"targetIpAddress").getText();
+    String targetPort = cp5.get(Textfield.class,"targetPort").getText();
+    if (!targetIpAddress.equals("") && !targetPort.equals("")) {
+      recorder.setTargetIpAddress(targetIpAddress);
+      recorder.setTargetPort(Integer.parseInt(targetPort));
+    }
+  }
+  catch (Exception e) {
+    println(e);
+  }
 }
