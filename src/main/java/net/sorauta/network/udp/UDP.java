@@ -59,26 +59,26 @@ public class UDP implements Runnable {
   protected final Logger L = Logger.getLogger(getClass());
 
   // the current unicast/multicast datagram socket
-  DatagramSocket ucSocket = null;
-  MulticastSocket mcSocket = null;
+  private DatagramSocket ucSocket = null;
+  private MulticastSocket mcSocket = null;
 
-  boolean listen = false; // true, if the socket waits for packets
-  int timeout = 0; // reception timeout > 0=infinite timeout
-  int size = 65507; // the socket buffer size in bytes
-  InetAddress group = null; // the multicast's group address to join
+  private boolean listen = false; // true, if the socket waits for packets
+  private int timeout = 0; // reception timeout > 0=infinite timeout
+  private int size = 65507; // the socket buffer size in bytes
+  private InetAddress group = null; // the multicast's group address to join
 
   // the reception Thread > wait automatically for incoming datagram packets
   // without blocking the current Thread.
-  Thread thread = null;
+  private Thread thread = null;
 
   // the parent object (could be an application, a componant, etc...)
-  Object owner = null;
+  private Object owner = null;
 
   // the default "receive handler" and "timeout handler" methods name.
   // these methods must be implemented (by the owner) to be called
   // automatically when the socket receive incoming datas or a timeout event
-  String receiveHandler = "receive";
-  String timeoutHandler = "timeout";
+  private String receiveHandler = "onReceived";
+  private String timeoutHandler = "onTimedOut";
 
   ///////////////////////////////// fields ///////////////////////////////
 

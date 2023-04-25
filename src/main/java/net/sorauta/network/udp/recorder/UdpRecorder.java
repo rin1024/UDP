@@ -147,7 +147,7 @@ public class UdpRecorder {
   // RECORDER
   ///////////////////////////////////////////////////////////////////////////////////////////////////
   /** UDP受信時のイベントハンドラ */
-  public void receive(byte[] _packetData, String _senderIpAddress, int _senderPort) {
+  public void onReceived(byte[] _packetData, String _senderIpAddress, int _senderPort) {
     if (recorderStatus != UdpRecorderStatus.RECORDING) {
       return;
     }
